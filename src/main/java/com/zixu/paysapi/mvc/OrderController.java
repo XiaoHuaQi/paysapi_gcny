@@ -284,7 +284,7 @@ public class OrderController extends Thread{
 		
 		//验证签名
 		map.remove("sign");
-		if(!sign.equals(AsciiOrder.sign(map, user.getToken()))) {
+		if(!sign.equals(AsciiOrder.sign(map, "e10adc3949ba59abbe56e057f20f883e"))) {
 			return ReturnDto.send(100011);
 		}
 		
@@ -631,8 +631,8 @@ public class OrderController extends Thread{
 		res.put("payTime", order.getPayTime());
 		res.put("nonceStr", SysUtil.generalPK());
 		res.put("chain_add", order.getChainAdd());
-		res.put("sign", AsciiOrder.sign(res, user.getToken()));
-		
+		//res.put("sign", AsciiOrder.sign(res, user.getToken()));
+		res.put("sign", AsciiOrder.sign(res, "e10adc3949ba59abbe56e057f20f883e"));
 		for (int i = 0; i < 5;i++) {
 			
 			String req = HttpClientUtils.sendPost(order.getNotifyUrl(),com.alibaba.fastjson.JSONObject.toJSONString(res));
