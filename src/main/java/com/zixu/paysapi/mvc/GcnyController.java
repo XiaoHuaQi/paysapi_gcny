@@ -772,6 +772,33 @@ public class GcnyController {
 
 	}
 	
+	
+	@RequestMapping("/user/resetPassword")
+	@ResponseBody
+	public ReturnDto resetPassword(HttpServletRequest request) {
+		
+		
+		String uid = request.getParameter("uid");
+		String password = request.getParameter("password");
+		if(uid == null || password == null) {
+			return ReturnDto.send(100001);
+		}
+		
+		User user = userService.findByUid(uid);
+		
+		if(user == null) {
+			return ReturnDto.send(100002);
+		}
+		
+		user.setPassword(MD5.MD5Encode(password));
+		
+		user = userService.save(user);
+		if(user == null) {
+			return ReturnDto.send(100005);
+		}
+		return ReturnDto.send(true);
+	}
+	
 }
 	
 	

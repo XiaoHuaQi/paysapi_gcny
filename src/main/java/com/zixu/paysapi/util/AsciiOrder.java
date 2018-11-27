@@ -23,4 +23,5 @@ public class AsciiOrder {
         return Md5Utils.md5(strSign).toLowerCase();
     }
 	
+
 }

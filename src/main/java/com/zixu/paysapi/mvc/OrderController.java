@@ -125,7 +125,21 @@ public class OrderController extends Thread{
 		if(chainAdd == null || price == null || type == null || notifyUrl == null || outTradeNo == null || nonceStr == null || sign == null) {
 			return ReturnDto.send(100001);
 		}
-		
+		Map<String, String> paramsend = new HashMap<>();
+		//paramsend.put("chain_add", chainAdd);
+		//查询大户状态
+		String reqSta = HttpClientUtils.sendPost("http://gcny.wmpayinc.com:8080/trade/outside/outsideGetUserInfo.html?chain_add="+chainAdd,com.alibaba.fastjson.JSONObject.toJSONString(paramsend));
+		System.out.println("chain_add:"+chainAdd+"---"+reqSta);
+		try {
+			Map<String, String> mapSta = (Map<String, String>) JSONObject.toBean(JSONObject.fromObject(reqSta),Map.class);
+			
+			Map<String, String> mapData =  (Map<String, String>) JSONObject.toBean(JSONObject.fromObject(mapSta.get("data")),Map.class);
+			if (!mapData.get("isUse").toString().equals("1")) {
+				return ReturnDto.send(100016);
+			}
+		} catch (Exception e) {
+			return ReturnDto.send(100009);
+		}
 		//数据格式校验
 		int fee = 0;
 		try {
