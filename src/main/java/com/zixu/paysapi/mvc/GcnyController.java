@@ -799,6 +799,32 @@ public class GcnyController {
 		return ReturnDto.send(true);
 	}
 	
+	/**
+	 * 更新额度
+	 * @param request
+	 * @return
+	 */
+	@RequestMapping("/user/updateQuota")
+	@ResponseBody
+	public ReturnDto updateQuota(HttpServletRequest request) {
+		
+		String data = request.getParameter("data");
+		if(data == null || data == null) {
+			return ReturnDto.send(100001);
+		}
+		JSONArray list=new JSONArray();
+		try {
+			list=JSONArray.parseArray(data);
+		} catch (Exception e1) {
+			return ReturnDto.send(100009);
+		}
+		if (list.size()>0) {
+			userService.updateQuota(list);
+		}
+		
+		return ReturnDto.send(true);
+	}
+	
 }
 	
 	

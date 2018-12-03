@@ -2,6 +2,7 @@ package com.zixu.paysapi.jpa.service;
 
 import java.util.List;
 
+import com.alibaba.fastjson.JSONArray;
 import com.zixu.paysapi.jpa.dto.UserDto;
 import com.zixu.paysapi.jpa.entity.User;
 import com.zixu.paysapi.mvc.util.Page;
@@ -22,6 +23,8 @@ public interface UserService {
 	
 	Page<User> findAll(int pageNum,String userName);
 	
-	List<UserDto> findByOrderPay();
+	List<UserDto> findByOrderPay(String type);
+	
+	void updateQuota(JSONArray list);
 	
 }

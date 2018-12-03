@@ -42,21 +42,21 @@ public class FileUtil {
 
 		File cosFile = new File(FileUtil.UploadFile((CommonsMultipartFile) multfile, request));
 
-		COSCredentials cred = new BasicCOSCredentials("AKIDjNxZ3XD33sXHtTOF64ubAapu326B7Az8",
-				"GUZVM3jEalCWgkeNxoZCDC3iDh4Gbl05");
+		COSCredentials cred = new BasicCOSCredentials("AKIDLSKyOwgJBoCLrBnFwObZIrDOK3ZqtkQs",
+				"QdbLq66uUwBF7k9JI2oNiofIgspb8Qaa");
 		ClientConfig clientConfig = new ClientConfig(new Region("ap-guangzhou"));
 		COSClient cosClient = new COSClient(cred, clientConfig);
-		String bucketName = "wangkaipeng-1253846104";
+		String bucketName = "wanma-1251498119";
 		String pathName = ((CommonsMultipartFile) multfile).getFileItem().getName();
 		String key = "/paysapi/img/" + new Date().getTime()+"/"+ RandomUtil.getRandomString(12) + pathName.substring(pathName.lastIndexOf("."), pathName.length());
-		String cdnUrl = "https://wangkaipeng-1253846104.cos.ap-guangzhou.myqcloud.com";
+		String cdnUrl = "https://wanma-1251498119.cos.ap-guangzhou.myqcloud.com";
 		PutObjectRequest putObjectRequest = new PutObjectRequest(bucketName, key, cosFile);
 		cosClient.putObject(putObjectRequest);
 		cosClient.shutdown();
 		Date expiration = new Date(new Date().getTime() + 5 * 60 * 10000);
 		String url = cdnUrl+key;
 		cosFile.delete();
-		GeneratePresignedUrlRequest  req = new GeneratePresignedUrlRequest("wangkaipeng-1253846104", key);
+		GeneratePresignedUrlRequest  req = new GeneratePresignedUrlRequest("wanma-1251498119", key);
 		Date expirationDate = new Date(System.currentTimeMillis() + 30L * 60L * 1000L);
 		req.setExpiration(expirationDate);
 		URL downloadUrl = cosClient.generatePresignedUrl(req);
@@ -107,21 +107,21 @@ public class FileUtil {
 
 		File cosFile = new File(FileUtil.UploadFile((CommonsMultipartFile) multfile, request));
 
-		COSCredentials cred = new BasicCOSCredentials("AKIDibTbmhpoVHbEfV7s72Sbn0DKMiwQdrKs",
-				"fyIfavFE2RIU8oJVbDvGcJlEJ640KPaS");
+		COSCredentials cred = new BasicCOSCredentials("AKIDLSKyOwgJBoCLrBnFwObZIrDOK3ZqtkQs",
+				"QdbLq66uUwBF7k9JI2oNiofIgspb8Qaa");
 		ClientConfig clientConfig = new ClientConfig(new Region("ap-guangzhou"));
 		COSClient cosClient = new COSClient(cred, clientConfig);
-		String bucketName = "staticzixuhk-1251111761";
+		String bucketName = "wanma-1251498119";
 		String pathName = ((CommonsMultipartFile) multfile).getFileItem().getName();
 		String key = "/wmpayer/img/" + new Date().getTime()+"/"+ RandomUtil.getRandomString(12) + pathName.substring(pathName.lastIndexOf("."), pathName.length());
-		String cdnUrl = "https://static.zixu.hk";
+		String cdnUrl = "https://wanma-1251498119.cos.ap-guangzhou.myqcloud.com";
 		PutObjectRequest putObjectRequest = new PutObjectRequest(bucketName, key, cosFile);
 		cosClient.putObject(putObjectRequest);
 		cosClient.shutdown();
 		Date expiration = new Date(new Date().getTime() + 5 * 60 * 10000);
 		String url = cdnUrl+key;
 		cosFile.delete();
-		GeneratePresignedUrlRequest  req = new GeneratePresignedUrlRequest("wangkaipeng-1253846104", key);
+		GeneratePresignedUrlRequest  req = new GeneratePresignedUrlRequest("wanma-1251498119", key);
 		Date expirationDate = new Date(System.currentTimeMillis() + 30L * 60L * 1000L);
 		req.setExpiration(expirationDate);
 		URL downloadUrl = cosClient.generatePresignedUrl(req);

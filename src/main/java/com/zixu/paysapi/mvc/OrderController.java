@@ -109,6 +109,7 @@ public class OrderController extends Thread{
 		try {
 			map = (Map<String, String>) JSONObject.toBean(JSONObject.fromObject(jsonStr),Map.class);
 		} catch (Exception e) {
+			System.out.println("下单接口获取不到参数");
 			return ReturnDto.send(100009);
 		}
 		
@@ -129,7 +130,7 @@ public class OrderController extends Thread{
 		//paramsend.put("chain_add", chainAdd);
 		//查询大户状态
 		String reqSta = HttpClientUtils.sendPost("http://gcny.wmpayinc.com:8080/trade/outside/outsideGetUserInfo.html?chain_add="+chainAdd,com.alibaba.fastjson.JSONObject.toJSONString(paramsend));
-		System.out.println("chain_add:"+chainAdd+"---"+reqSta);
+		System.out.println("请求GCNY查询大户状态：参数chain_add:"+chainAdd+"---返回结果："+reqSta);
 		try {
 			Map<String, String> mapSta = (Map<String, String>) JSONObject.toBean(JSONObject.fromObject(reqSta),Map.class);
 			
@@ -626,6 +627,8 @@ public class OrderController extends Thread{
 		
 	}
 	
+	
+	
 	public void run() {
 		
 		Order order = orderService.findById(orderID);
@@ -776,7 +779,7 @@ public class OrderController extends Thread{
 	public static Map<String, String> RandomUser(UserService userService,int fee,SetMealPurchaseService setMealPurchaseService,
 			CommodityService commodityService,QrcodeService qrcodeService,String type) {
 		
-		List<UserDto> list = userService.findByOrderPay();
+		List<UserDto> list = userService.findByOrderPay(type);
 		
 		return getRandomUser(list,commodityService,fee,qrcodeService,setMealPurchaseService,type);
 	}
@@ -798,6 +801,21 @@ public class OrderController extends Thread{
 				list.remove(row);
 				return getRandomUser(list,commodityService,fee,qrcodeService,setMealPurchaseService,type);
 			}
+			
+			
+			if("alipay".equals(type)) {
+				if(user.getAlipayQuota().compareTo(BigDecimal.ZERO)!=1) {
+					list.remove(row);
+					return getRandomUser(list,commodityService,fee,qrcodeService,setMealPurchaseService,type);
+				}
+			}else if ("wechat".equals(type)) {
+				if(user.getWechatQuota().compareTo(BigDecimal.ZERO)!=1) {
+					list.remove(row);
+					return getRandomUser(list,commodityService,fee,qrcodeService,setMealPurchaseService,type);
+				}
+			}
+			
+			
 			if(setMealPurchaseService.findByUserIDAndExpireDate(user.getId()) == null) {
 				list.remove(row);
 				return getRandomUser(list,commodityService,fee,qrcodeService,setMealPurchaseService,type);
@@ -815,10 +833,25 @@ public class OrderController extends Thread{
 					}
 				}
 			}
+			
+			
 			if(proceduresFee > Integer.valueOf(user.getSumFee())) {
 				list.remove(row);
 				return getRandomUser(list,commodityService,fee,qrcodeService,setMealPurchaseService,type);
 			}
+			//与额度做比较
+			
+			/*if("alipay".equals(type)) {
+				if(user.getAlipayQuota().compareTo(BigDecimal.valueOf(proceduresFee))!=1) {
+					list.remove(row);
+					return getRandomUser(list,commodityService,fee,qrcodeService,setMealPurchaseService,type);
+				}
+			}else if ("wechat".equals(type)) {
+				if(user.getWechatQuota().compareTo(BigDecimal.valueOf(proceduresFee))!=1) {
+					list.remove(row);
+					return getRandomUser(list,commodityService,fee,qrcodeService,setMealPurchaseService,type);
+				}
+			}*/
 			
 			Commodity commodity =  commodityService.findByFee(fee, user.getId());
 			if(commodity == null) {
@@ -862,7 +895,26 @@ public class OrderController extends Thread{
 	}
 	@RequestMapping("/test")
 	public void test() {
-		List<UserDto> list = userService.findByOrderPay();
-		System.out.println(list);
+		System.out.println("----测试回调-------");
+			Map<String, String> res = new HashMap<>();
+			res.put("outTradeNo", "gcnypay154345392988386");
+			res.put("price", String.valueOf(10000));
+			res.put("type", "alipay");
+			res.put("uid", " PAS4S54GIERPMH0LRCWA0AS3SR71I9WS");
+			res.put("payState", "SUCCESS");
+			res.put("payTime", "2018-11-29 09:12:12");
+			res.put("nonceStr", "F4Z1N9X05B88Z7J21XAYF386R57Z");
+			res.put("chain_add", "X2F4Z1N9X05B88Z7J21XAYF386R57Z3X");
+			//res.put("sign", AsciiOrder.sign(res, user.getToken()));
+			res.put("sign", AsciiOrder.sign(res, "e10adc3949ba59abbe56e057f20f883e"));
+			String req = HttpClientUtils.sendPost("http://118.25.179.17/trade/orderStaChangeGuma.html",com.alibaba.fastjson.JSONObject.toJSONString(res));
+			System.out.println(req);
+			if("SUCCESS".equals(req)) {
+				System.out.println(req+"----success-------");
+				return;
+			}else {
+				
+			}
+		
 	}
 }

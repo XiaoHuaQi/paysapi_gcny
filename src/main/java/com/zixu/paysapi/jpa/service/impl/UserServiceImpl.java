@@ -1,12 +1,15 @@
 package com.zixu.paysapi.jpa.service.impl;
 
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.alibaba.fastjson.JSONArray;
 import com.zixu.paysapi.jpa.dao.UserDao;
+import com.zixu.paysapi.jpa.dto.ReturnDto;
 import com.zixu.paysapi.jpa.dto.UserDto;
 import com.zixu.paysapi.jpa.entity.SetMealPurchase;
 import com.zixu.paysapi.jpa.entity.User;
@@ -129,11 +132,30 @@ public class UserServiceImpl implements UserService{
 	}
 
 	@Override
-	public List<UserDto> findByOrderPay() {
+	public List<UserDto> findByOrderPay(String type) {
 		
-		String sql = "SELECT u.id as id,IFNULL(SUM(d.fee),0) AS sumFee FROM com_zixu_user u LEFT JOIN com_zixu_recharge_user_detailed d ON u.id = d.userID WHERE u.state='0' AND u.type='merchant' GROUP BY u.id ORDER BY sumFee DESC ";
+		String sql = "SELECT u.id as id,IFNULL(SUM(d.fee),0) AS sumFee,u.alipayQuota,u.wechatQuota FROM com_zixu_user u LEFT JOIN com_zixu_recharge_user_detailed d ON u.id = d.userID WHERE u.state='0' AND u.type='merchant' GROUP BY u.id ORDER BY  ";
 		
+		if("alipay".equals(type)) {
+			sql=sql+"u.alipayQuota DESC, ";
+		}else if ("wechat".equals(type)) {
+			sql=sql+"u.wechatQuota DESC, ";
+		}
+		sql=sql+" sumFee DESC ";
 		return dao.nativeFind(UserDto.class, sql);
+	}
+
+	@Override
+	public void updateQuota(JSONArray list) {
+		
+		for (int i = 0; i < list.size(); i++) {
+			com.alibaba.fastjson.JSONObject data=list.getJSONObject(i);
+			
+			String sql="UPDATE com_zixu_user SET alipayQuota=? ,wechatQuota=? WHERE uid=?";
+			dao.nativeExecuteUpdate(sql,data.getBigDecimal("alipayQuota"),data.getBigDecimal("wechatQuota"),data.getString("uid"));
+			
+		}
+		
 	}
 	
 	
