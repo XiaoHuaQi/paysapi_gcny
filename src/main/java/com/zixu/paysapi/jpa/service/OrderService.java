@@ -36,4 +36,6 @@ public interface OrderService {
 	
 	Order findByOutTradeNo(String outTradeNo);
 	
+	Page<Order> fiveAllMatching(int pageNum,String type,String keyword,String startDate,String endDate,int fee);
+	
 }

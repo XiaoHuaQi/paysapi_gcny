@@ -1330,7 +1330,19 @@ public class AdminController {
 		return ReturnDto.send(true);
 	}
 	
-	
+	//无匹配
+	@RequestMapping("/five/matching")
+	@ResponseBody
+	public ReturnDto fiveMatching(HttpServletRequest request,int pageNum,String type,String userName,String startDate,String endDate,int fee) {
+				
+		if(pageNum == 0) {
+			return ReturnDto.send(100001);
+		}
+				
+		Page<Order> order = orderService.fiveAllMatching(pageNum,type,userName,startDate,endDate,fee);
+				
+		return ReturnDto.send(order);
+	}
 	
 }
 	

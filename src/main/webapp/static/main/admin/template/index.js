@@ -131,7 +131,17 @@ menuApp.run(['$rootScope', '$location', '$sce', '$log', function ($rootScope, $l
                 }
             ]
         },
-        
+        {
+            title: "无匹配订单",
+            icon: "zanwuyituichudingdan",
+            url: "/matching/list",
+            second: [
+                {
+                    title: "无匹配订单",
+                    url: "/matching/list"
+                }
+            ]
+        },
         {
             title: "用户购买详情",
             icon: "integral2",
@@ -276,6 +286,11 @@ app.config(['$routeProvider', function ($routeProvider) {
         .when('/setMealPurchase/list', {
             templateUrl: "/static/main/admin/template/setMealPurchase/list.html",
             controller: "setMealPurchaseList"
+        })
+         //无匹配订单-列表
+        .when('/matching/list', {
+            templateUrl: "/static/main/admin/template/matching/list.html",
+            controller: "matchingList"
         })
           //用户购买详情-新增
         .when('/setMealPurchase/add', {
@@ -3707,6 +3722,253 @@ $scope.isShowUpLoadQrCodeBox=false;
 
 }]);
 
+
+/** 无匹配订单-列表 */
+app.controller('matchingList', ['$scope', '$rootScope','$filter', function ($scope, $rootScope,$filter) {
+
+	 // 当前页
+    $scope.currentPage = 1;
+    // 总页数
+    $scope.totalPage;
+    // 页数列表
+    $scope.totalPageList;
+    // 页码输入
+    $scope.pageInput;
+    // 汇总数据对象
+    $scope.allInOneObj = {};
+    // 带条件的列表请求方法
+    var getDataListForCondition = function (conditionObj) {
+
+        gatewayHttpRequest("/admin/five/matching", conditionObj, function (res) {
+            var data = res.data;
+
+            console.log(data);
+            if (data.list == undefined || data.list.length < 1) {
+                $scope.rowList = [];
+                $scope.totalPage = 0;
+                $scope.totalPageList = [];
+            } else {
+                $scope.rowList = data.list;
+                $scope.totalPage = data.totalPage;
+                $scope.currentPage = data.pageNum;
+                $scope.totalPageList = calculateIndexes($scope.currentPage, $scope.totalPage, 6);
+            }
+
+            $scope.$apply();
+        });
+    }
+
+    // 第一次加载数据
+    $scope.postDataObj = {};
+
+    $scope.postDataObj.pageNum = $scope.currentPage;
+    $scope.postDataObj.fee = '0';
+    getDataListForCondition($scope.postDataObj);
+
+    // 选择页数
+    $scope.onPageClick = function (page) {
+
+        $scope.currentPage = page;
+        $scope.postDataObj.pageNum = $scope.currentPage;
+        getDataListForCondition($scope.postDataObj);
+    }
+
+    // 首页
+    $scope.indexPage = function () {
+        $scope.currentPage = 1;
+        $scope.postDataObj.pageNum = $scope.currentPage;
+        getDataListForCondition($scope.postDataObj);
+
+    }
+    // 尾页
+    $scope.lastPage = function () {
+        $scope.currentPage = $scope.totalPage;
+        $scope.postDataObj.pageNum = $scope.currentPage;
+        getDataListForCondition($scope.postDataObj);
+    }
+    // 上一页
+    $scope.prePage = function () {
+
+        if ($scope.currentPage > 1) {
+            $scope.currentPage = $scope.currentPage - 1;
+            $scope.postDataObj.pageNum = $scope.currentPage;
+            getDataListForCondition($scope.postDataObj);
+
+        } else {
+            showTips.showTopToast('error', '已经是第一页了', 1500);
+        }
+
+
+    }
+    // 下一页
+    $scope.nextPage = function () {
+        if ($scope.currentPage < $scope.totalPage) {
+            $scope.currentPage = $scope.currentPage + 1;
+            $scope.postDataObj.pageNum = $scope.currentPage;
+            getDataListForCondition($scope.postDataObj);
+
+        } else {
+            showTips.showTopToast('error', '已经是最后一页了', 1500);
+        }
+    }
+
+    // 跳转
+    $scope.skipPage = function () {
+
+        if ($scope.pageInput == undefined || $scope.pageInput == null) {
+            showTips.showTopToast('error', '请输入页码', 1500);
+            return;
+        }
+        if ($scope.pageInput < 1) {
+            showTips.showTopToast('error', '最小页码为1页', 1500);
+            return;
+        }
+
+        if ($scope.pageInput > $scope.totalPage) {
+            showTips.showTopToast('error', '最大页码为' + $scope.totalPage + '页', 1500);
+            return;
+        }
+        $scope.currentPage = $scope.pageInput;
+        $scope.postDataObj.pageNum = $scope.currentPage;
+        getDataListForCondition($scope.postDataObj);
+    }
+    
+    
+    /*金额 检查*/
+    $scope.checkFee=function(obj){
+    	 var value= checkFeeInputValidFunc(obj);
+    	 
+    	 if(value.length>7){
+    		 showTips.showTopToast('error', '金额过大', 1500);
+	         return;
+    	 } 	 
+         $scope.searchKey =value; 
+    }
+    
+    
+    $scope.startTime;
+    $scope.endTime;
+
+    /* 开始时间 */
+    $scope.onStartTimeChange = function () {
+
+        if ($scope.startTime == undefined || $scope.startTime == null || $scope.startTime == '') {
+            return;
+        }
+        var startTime = $filter('date')($scope.startTime, 'yyyy-MM-dd');
+
+        $scope.postDataObj.startDate=startTime;
+    }
+
+    /* 结束时间 */
+    $scope.onEndTimeChange = function () {
+
+        if ($scope.endTime == undefined || $scope.endTime == null || $scope.endTime == '') {
+            return;
+        }
+        var endTime = $filter('date')($scope.endTime, 'yyyy-MM-dd');     
+        $scope.postDataObj.endDate=endTime;
+    }
+    
+    
+ // 类型选择数组
+    $scope.changeTypeList = [
+
+        {
+            'name': '支付宝+微信',
+            'type': 'ALL'
+        },
+        {
+            'name': '支付宝',
+            'type': 'alipay'
+        },
+        {
+            'name': '微信',
+            'type': 'wechat'
+        }
+    ];
+    var showClick = false;
+    $scope.isShowTypeChange = false;
+    // 是否显示类型下拉框
+    $scope.showTypechange = function () {
+        $scope.isShowTypeChange = !$scope.isShowTypeChange;
+        if(showClick){
+        	showClick=false;
+        } 
+        
+    }
+    
+    /* 关闭所有弹框 */
+    $scope.closeAllBox=function(){
+    	
+    	if(showClick){
+    		$scope.isShowTypeChange=false;
+    		showClick = false;
+    	}else{
+    		showClick = true;
+    	} 	
+ 	
+    }
+      
+    // 类型
+    $scope.typeChangeObj;
+
+    /* 类型选择 */
+    $scope.typeChoise = function (item) {
+        $scope.typeChangeObj = item;
+        $scope.isShowTypeChange = false;
+        
+        if($scope.typeChangeObj.type=='ALL'){
+       	
+        	if ($scope.postDataObj.type != undefined) {
+                delete $scope.postDataObj.type;
+            }         
+        	
+        }else{       	
+        	$scope.postDataObj.type=$scope.typeChangeObj.type;       	
+        }           
+    }
+    
+    // 搜索
+    $scope.searchKey;
+    
+    /* 搜索 */
+    $scope.doSearch = function () {
+   	
+    	 $scope.currentPage = 1;
+         $scope.postDataObj.pageNum = $scope.currentPage;
+    	// 搜索关键词
+        if ($scope.searchKey == null || $scope.searchKey == '' || $scope.searchKey == undefined) {
+            if ($scope.postDataObj.userName != undefined) {
+                delete $scope.postDataObj.userName;
+            }         
+        } else {
+            $scope.currentPage = 1;
+            $scope.postDataObj.userName = $scope.searchKey + '';         
+        }
+        getDataListForCondition($scope.postDataObj);
+    }
+
+    /* 搜索 */
+//    $scope.doSearch = function () {
+//   	
+//    	 $scope.currentPage = 1;
+//         $scope.postDataObj.pageNum = $scope.currentPage;
+//    	// 搜索关键词
+//        if ($scope.searchKey == null || $scope.searchKey == '' || $scope.searchKey == undefined) {
+//            if ($scope.postDataObj.fee != undefined) {
+//                delete $scope.postDataObj.fee;
+//            }
+//            $scope.postDataObj.fee = '0';
+//        } else {
+//            $scope.currentPage = 1;
+//            $scope.postDataObj.fee = $scope.searchKey*100 + '';         
+//        }
+//    
+//        getDataListForCondition($scope.postDataObj);
+//    }
+    	
+}]);
 
 /** 首页*/
 app.controller('index', ['$scope', '$rootScope', function ($scope, $rootScope) {

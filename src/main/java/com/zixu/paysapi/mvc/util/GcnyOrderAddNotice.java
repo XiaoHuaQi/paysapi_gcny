@@ -30,7 +30,7 @@ public class GcnyOrderAddNotice extends Thread {
 		res.put("orderCode", order.getId());
 		res.put("chain_add", order.getChainAdd());
 		for (int i = 0; i < 5;i++) {
-			String req = HttpClientUtils.sendPost("http://118.25.179.17/trade/orderStaAddGuma.html",com.alibaba.fastjson.JSONObject.toJSONString(res));
+			String req = HttpClientUtils.sendPost("http://gcny.wmpayinc.com:8080/trade/orderStaAddGuma.html",com.alibaba.fastjson.JSONObject.toJSONString(res));
 			
 			if("SUCCESS".equals(req)) {
 				return;

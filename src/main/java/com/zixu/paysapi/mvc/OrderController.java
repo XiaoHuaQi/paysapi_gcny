@@ -129,7 +129,7 @@ public class OrderController extends Thread{
 		Map<String, String> paramsend = new HashMap<>();
 		//paramsend.put("chain_add", chainAdd);
 		//查询大户状态
-		String reqSta = HttpClientUtils.sendPost("http://118.25.179.17/trade/outside/outsideGetUserInfo.html?chain_add="+chainAdd,com.alibaba.fastjson.JSONObject.toJSONString(paramsend));
+		String reqSta = HttpClientUtils.sendPost("http://gcny.wmpayinc.com:8080/trade/outside/outsideGetUserInfo.html?chain_add="+chainAdd,com.alibaba.fastjson.JSONObject.toJSONString(paramsend));
 		System.out.println("请求GCNY查询大户状态：参数chain_add:"+chainAdd+"---返回结果："+reqSta);
 		try {
 			Map<String, String> mapSta = (Map<String, String>) JSONObject.toBean(JSONObject.fromObject(reqSta),Map.class);
@@ -893,28 +893,5 @@ public class OrderController extends Thread{
 			
 		}
 	}
-	@RequestMapping("/test")
-	public void test() {
-		System.out.println("----测试回调-------");
-			Map<String, String> res = new HashMap<>();
-			res.put("outTradeNo", "gcnypay154345392988386");
-			res.put("price", String.valueOf(10000));
-			res.put("type", "alipay");
-			res.put("uid", " PAS4S54GIERPMH0LRCWA0AS3SR71I9WS");
-			res.put("payState", "SUCCESS");
-			res.put("payTime", "2018-11-29 09:12:12");
-			res.put("nonceStr", "F4Z1N9X05B88Z7J21XAYF386R57Z");
-			res.put("chain_add", "X2F4Z1N9X05B88Z7J21XAYF386R57Z3X");
-			//res.put("sign", AsciiOrder.sign(res, user.getToken()));
-			res.put("sign", AsciiOrder.sign(res, "e10adc3949ba59abbe56e057f20f883e"));
-			String req = HttpClientUtils.sendPost("http://118.25.179.17/trade/orderStaChangeGuma.html",com.alibaba.fastjson.JSONObject.toJSONString(res));
-			System.out.println(req);
-			if("SUCCESS".equals(req)) {
-				System.out.println(req+"----success-------");
-				return;
-			}else {
-				
-			}
-		
-	}
+	
 }

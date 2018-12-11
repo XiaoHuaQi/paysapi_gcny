@@ -84,9 +84,9 @@ public class OrderServiceImpl implements OrderService {
 		Page<Order> page = new Page<>();
 		
 		StringBuffer sql = new StringBuffer();
-		sql.append("select * from com_zixu_order where outTradeNo is null and orderType = '0' and userID = '"+userID+"'");
+		sql.append(" select * from com_zixu_order where outTradeNo is null  and userID = '"+userID+"'");
 		if(type != null && !type.equals("")) {
-			sql.append("and type = '"+type+"'");
+			sql.append(" and type = '"+type+"'");
 		}
 		if(fee != 0 ) {
 			sql.append(" and price = '"+fee+"'");
@@ -295,5 +295,57 @@ public class OrderServiceImpl implements OrderService {
 	public Order findByOutTradeNo(String outTradeNo) {
 		String sql = "select * from com_zixu_order where  outTradeNo = ?";
 		return dao.nativeFindUnique(Order.class, sql, outTradeNo);
+	}
+	
+	@Override
+	public Page<Order> fiveAllMatching(int pageNum, String type, String keyword, String startDate, String endDate,int fee) {
+		Page<Order> page = new Page<>();
+		
+		StringBuffer sql = new StringBuffer();
+		sql.append(" select u.account,u.userName,o.* from com_zixu_order o ");
+		sql.append(" LEFT JOIN com_zixu_user u ON o.userID=u.id ");
+		sql.append(" where o.outTradeNo is null ");
+		
+		if(keyword != null && !keyword.equals("")) {
+			sql.append(" AND u.userName LIKE '%"+keyword+"%' ");
+		}
+		
+		if(type != null && !type.equals("")) {
+			sql.append(" and o.type = '"+type+"'");
+		}
+		if(fee != 0 ) {
+			sql.append(" and o.price = '"+fee+"'");
+		}
+		if(startDate != null && !startDate.equals("")) {
+			sql.append(" and DATE_FORMAT(o.payTime,'%Y-%m-%d') >= '"+startDate+"'");
+		}
+		if(endDate != null && !endDate.equals("")) {
+			sql.append(" and DATE_FORMAT(o.payTime,'%Y-%m-%d') <= '"+endDate+"'");
+		}
+		sql.append(" order by o.payTime desc ");
+		
+		int count = dao.getCount(sql.toString());
+		if(count == 0) {
+			return null;
+		}
+		
+		String sqlPage = page.getMysqlPageSql(sql.toString(), pageNum, 30);
+		List<Order> list = dao.nativeFind(Order.class, sqlPage);
+		for (Order order : list) {
+			if(order.getUserID() != null) {
+				User user = userService.findById(order.getUserID());
+				if(user != null) {
+					order.setUserName(user.getUserName());
+					order.setAccount(user.getAccount());
+				}
+			}
+			
+		}
+		page.setList(list);
+		page.setPageNum(pageNum);
+		page.setPageSize(30);
+		page.setTotalRow(count);
+		page.setTotalPage(count % 30 == 0 ? count / 30 : count / 30 + 1);
+		return page;
 	}
 }
