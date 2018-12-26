@@ -6,7 +6,7 @@
 //var baseUrl = 'http://test.zixuapp.com';
 //var baseUrl = 'http://192.168.1.4:8080';
 //var baseUrl = 'http://127.0.0.1:8080';
-var baseUrl = 'http://api.wmpayinc.com:8080';
+var baseUrl = 'http://api.haohan168.cn:8080';
 //var baseUrl = 'http://47.107.86.21';
 function getCookie(cname) {
     var name = cname + "=";

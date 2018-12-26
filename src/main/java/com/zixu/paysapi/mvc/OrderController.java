@@ -129,7 +129,7 @@ public class OrderController extends Thread{
 		Map<String, String> paramsend = new HashMap<>();
 		//paramsend.put("chain_add", chainAdd);
 		//查询大户状态
-		String reqSta = HttpClientUtils.sendPost("http://gcny.wmpayinc.com:8080/trade/outside/outsideGetUserInfo.html?chain_add="+chainAdd,com.alibaba.fastjson.JSONObject.toJSONString(paramsend));
+		String reqSta = HttpClientUtils.sendPost("http://gcny.haohan168.cn:8080/trade/outside/outsideGetUserInfo.html?chain_add="+chainAdd,com.alibaba.fastjson.JSONObject.toJSONString(paramsend));
 		System.out.println("请求GCNY查询大户状态：参数chain_add:"+chainAdd+"---返回结果："+reqSta);
 		try {
 			Map<String, String> mapSta = (Map<String, String>) JSONObject.toBean(JSONObject.fromObject(reqSta),Map.class);
