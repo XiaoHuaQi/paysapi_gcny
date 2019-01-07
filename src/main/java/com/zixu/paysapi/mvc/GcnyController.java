@@ -28,12 +28,14 @@ import com.google.zxing.Result;
 import com.google.zxing.client.j2se.BufferedImageLuminanceSource;
 import com.google.zxing.common.HybridBinarizer;
 import com.zixu.paysapi.jpa.dto.ReturnDto;
+import com.zixu.paysapi.jpa.entity.AdminConfig;
 import com.zixu.paysapi.jpa.entity.Commodity;
 import com.zixu.paysapi.jpa.entity.Order;
 import com.zixu.paysapi.jpa.entity.Qrcode;
 import com.zixu.paysapi.jpa.entity.RechargeUserDetailed;
 import com.zixu.paysapi.jpa.entity.SetMealPurchase;
 import com.zixu.paysapi.jpa.entity.User;
+import com.zixu.paysapi.jpa.service.AdminConfigService;
 import com.zixu.paysapi.jpa.service.CommodityService;
 import com.zixu.paysapi.jpa.service.OrderService;
 import com.zixu.paysapi.jpa.service.QrcodeService;
@@ -69,6 +71,8 @@ public class GcnyController {
 	@Autowired
 	private OrderService orderService;
 	
+	@Autowired
+	private AdminConfigService adminConfigService;
 	
 	@RequestMapping("/user/save")
 	@ResponseBody
@@ -613,6 +617,7 @@ public class GcnyController {
 						rechargeUserDetailed.setFee(-proceduresFee);
 						rechargeUserDetailed.setUserID(order.getUserID());
 						rechargeUserDetailed.setRemarks("下单扣除手续费");
+						rechargeUserDetailed.setOrderCode(order.getOutTradeNo());
 						rechargeUserDetailed =  rechargeUserDetailedService.save(rechargeUserDetailed);
 						
 						order.setProcedures(procedures);
@@ -824,7 +829,74 @@ public class GcnyController {
 		
 		return ReturnDto.send(true);
 	}
+	/**
+	 * 修改成功率及开关
+	 * @param request
+	 * @return
+	 */
+	@RequestMapping("/updateSuccessRate")
+	@ResponseBody
+	public ReturnDto updateSuccessRate(HttpServletRequest request) {
+		
+		
+		String ratestr = request.getParameter("rate");
+		String isUse = request.getParameter("isUse");
+		AdminConfig adminConfig=adminConfigService.findByOne();
+		
+		if(adminConfig == null) {
+			return ReturnDto.send(100005);
+		}
+		if(ratestr == null || isUse == null) {
+			return ReturnDto.send(adminConfig);
+		}
+		
+		
+		
+		try {
+			Integer rate=Integer.parseInt(ratestr);
+			adminConfig.setRate(rate);
+			adminConfig.setIsUse(Integer.parseInt(isUse));
+			adminConfig = adminConfigService.save(adminConfig);
+			if(adminConfig == null) {
+				return ReturnDto.send(adminConfig);
+			}
+		} catch (Exception e) {
+			return ReturnDto.send(100009);
+		}
+		
+		return ReturnDto.send(adminConfig);
+	}
 	
+	
+	/**
+	 * 查找订单状态
+	 * @param request
+	 * @return
+	 */
+	@RequestMapping("/serchOrderState")
+	@ResponseBody
+	public ReturnDto serchOrderState(HttpServletRequest request) {
+		
+		
+		String outTradeNo = request.getParameter("outTradeNo");
+		
+		if(outTradeNo == null) {
+			return ReturnDto.send(100001);
+		}
+		
+		Order order=orderService.findByOutTradeNo(outTradeNo);
+		
+		if(order == null) {
+			return ReturnDto.send(100013);
+		}
+		
+		try {
+			 return ReturnDto.send(order);
+		} catch (Exception e) {
+			return ReturnDto.send(100009);
+		}
+		
+	}
 }
 	
 	

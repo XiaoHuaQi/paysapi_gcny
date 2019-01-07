@@ -56,55 +56,57 @@ import net.sf.json.JSONObject;
 @RequestMapping("/order")
 @Controller
 public class OrderController extends Thread{
-	
+
 	@Autowired
 	private OrderService orderService;
-	
+
 	@Autowired
 	private ChangeDetailService changeDetailService;
-	
+
 	@Autowired
 	private UserService userService;
-	
+
 	@Autowired
 	private ConfigService configService;
-	
+
 	@Autowired
 	private QrcodeService qrcodeService;
-	
+
 	@Autowired
 	private CommodityService commodityService;
-	
+
 	@Autowired
 	private SetMealPurchaseService setMealPurchaseService;
-	
+
 	@Autowired
 	private AdminConfigService adminConfigService;
-	
+
 	@Autowired
 	private SetMealService setMealService;
-	
+
 	@Autowired
 	private RechargeListService rechargeListService;
-	
+
 	@Autowired
 	private RechargeUserDetailedService rechargeUserDetailedService;
-	
-	
+
+
 	private static String redisKey = "api_pay:";
+
+	private static String orderTimeRedisKey = "userid_order_time_redis:";
 	
 	private String orderID;
-	
+
 	@RequestMapping("/api/pay")
 	@ResponseBody
 	public ReturnDto pay(HttpServletRequest request) throws IOException {
-		
+
 		String jsonStr = RequestJson.returnJson(request);
-		
+
 		if(jsonStr == null || "".equals(jsonStr)) {
 			return ReturnDto.send(100001);
 		}
-		
+
 		Map<String, String> map = null;
 		try {
 			map = (Map<String, String>) JSONObject.toBean(JSONObject.fromObject(jsonStr),Map.class);
@@ -112,7 +114,7 @@ public class OrderController extends Thread{
 			System.out.println("下单接口获取不到参数");
 			return ReturnDto.send(100009);
 		}
-		
+
 		//String uid = map.get("uid");
 		String price = map.get("price");
 		String type = map.get("type");
@@ -121,7 +123,7 @@ public class OrderController extends Thread{
 		String nonceStr = map.get("nonceStr");
 		String chainAdd = map.get("chain_add");
 		String sign = map.get("sign");
-		
+
 		//必填校验
 		if(chainAdd == null || price == null || type == null || notifyUrl == null || outTradeNo == null || nonceStr == null || sign == null) {
 			return ReturnDto.send(100001);
@@ -133,7 +135,7 @@ public class OrderController extends Thread{
 		System.out.println("请求GCNY查询大户状态：参数chain_add:"+chainAdd+"---返回结果："+reqSta);
 		try {
 			Map<String, String> mapSta = (Map<String, String>) JSONObject.toBean(JSONObject.fromObject(reqSta),Map.class);
-			
+
 			Map<String, String> mapData =  (Map<String, String>) JSONObject.toBean(JSONObject.fromObject(mapSta.get("data")),Map.class);
 			if (!mapData.get("isUse").toString().equals("1")) {
 				return ReturnDto.send(100016);
@@ -160,34 +162,34 @@ public class OrderController extends Thread{
 		if(nonceStr.length() > 32) {
 			return ReturnDto.send(100009);
 		}
-		
+
 		//获取用户信息
 		//User user = userService.findByUid(uid);
-		
+
 		//if(user == null) {
 		//	return ReturnDto.send(100002);
 		//}
-		
+
 		//验证签名
 		map.remove("sign");
 		if(!sign.equals(AsciiOrder.sign(map, "e10adc3949ba59abbe56e057f20f883e"))) {
 			return ReturnDto.send(100011);
 		}
-		
+
 		/*//是否购买套餐
 		if(setMealPurchaseService.findByUserIDAndExpireDate(user.getId()) == null) {
 			return ReturnDto.send(100019);
 		}
-		
+
 		//账户余额校验
 		int userFee = rechargeUserDetailedService.sum(user.getId());
 		if(userFee <= 0) {
 			return ReturnDto.send(100018);
 		}
-		
+
 		//计算手续费
 		int purchase = calculation(setMealPurchaseService, user.getId(), fee);
-		
+
 		Config config = configService.findById(user.getId());
 		if(config == null || config.getOverdueTime() == 0) {
 			config = new Config();
@@ -197,15 +199,16 @@ public class OrderController extends Thread{
 		if(commodity == null) {
 			return ReturnDto.send(100020);
 		}
-		
+
 		//获取金额二维码
 		String userID = user.getId();
 		if(userFee < purchase) {
 			userID = null;
 		}
-		*/
-		Map<String, String> qrinfo = RandomUser(userService, fee, setMealPurchaseService, commodityService, qrcodeService, type);
-		
+		 */
+		AdminConfig adminConfig = adminConfigService.findByOne();
+		Map<String, String> qrinfo = RandomUser(userService, fee, setMealPurchaseService, commodityService, qrcodeService, type,adminConfig);
+
 		if(qrinfo == null) {
 			return ReturnDto.send(100012);
 		}
@@ -216,7 +219,7 @@ public class OrderController extends Thread{
 		String procedures = qrinfo.get("procedures");
 		String proceduresFee = qrinfo.get("proceduresFee");
 		User user = userService.findById(userID);
-		
+
 		//添加数据
 		Order order = new Order();
 		order.setCommdityID(commodityID);
@@ -241,68 +244,82 @@ public class OrderController extends Thread{
 		if(order == null) {
 			return ReturnDto.send(100005);
 		}
-		
+
 		//冻结商户余额
 		RechargeUserDetailed rechargeUserDetailed = new RechargeUserDetailed();
 		rechargeUserDetailed.setFee(-Integer.valueOf(proceduresFee));
 		rechargeUserDetailed.setUserID(order.getUserID());
 		rechargeUserDetailed.setRemarks("下单冻结手续费");
 		rechargeUserDetailed.setOutTradeNo(outTradeNo);
+		rechargeUserDetailed.setOrderCode(outTradeNo);
 		rechargeUserDetailed =  rechargeUserDetailedService.save(rechargeUserDetailed);
 		if(rechargeUserDetailed == null) {
 			return ReturnDto.send(100005);
 		}
-		
-		
+
+
 		Map<String, String> res = new HashMap<>();
 		res.put("uid", user.getUid());
 		res.put("outTradeNo", outTradeNo);
 		res.put("qrcodeUrl", qrcodeUrl);
 		res.put("price", finalFee);
 		res.put("overdueTime", "360");
+
+		if (adminConfig.getIsUse()==1) {
+			//将上一单记录下来
+			String lastOrder = RedisOperationManager.getString(orderTimeRedisKey+"userID="+user.getId()+"&type="+type);
+			if(lastOrder != null) {
+				Integer orderCcount = Integer.parseInt(RedisOperationManager.getString(orderTimeRedisKey+"userID="+user.getId()+"&type="+type));
+				RedisOperationManager.setString(orderTimeRedisKey+"userID="+user.getId()+"&type="+type, String.valueOf(orderCcount+1), 60);
+			}else {
+				RedisOperationManager.setString(orderTimeRedisKey+"userID="+user.getId()+"&type="+type, "1", 60);
+			}
+		}
 		
+		
+
 		GcnyOrderAddNotice notice = new GcnyOrderAddNotice(outTradeNo, orderService);
 		notice.start();
-		
+
 		return ReturnDto.send(res);
 	}
-	
+
 
 	@RequestMapping("/api/query")
 	@ResponseBody
 	public ReturnDto query(HttpServletRequest request) throws IOException {
-		
+
 		String jsonStr = RequestJson.returnJson(request);
-		
+
 		if(jsonStr == null || "".equals(jsonStr)) {
 			return ReturnDto.send(100001);
 		}
-		
+
 		Map<String, String> map = (Map<String, String>) JSONObject.toBean(JSONObject.fromObject(jsonStr),Map.class);
-		
+
 		String uid = map.get("uid");
 		String outTradeNo = map.get("outTradeNo");
 		String nonceStr = map.get("nonceStr");
 		String sign = map.get("sign");
-		
+
 		//必填校验
 		if(uid == null || outTradeNo == null || nonceStr == null || sign == null) {
 			return ReturnDto.send(100001);
 		}
-		
+
 		//获取用户信息
 		User user = userService.findByUid(uid);
-		
+
 		if(user == null) {
 			return ReturnDto.send(100002);
 		}
-		
+
 		//验证签名
 		map.remove("sign");
 		if(!sign.equals(AsciiOrder.sign(map, "e10adc3949ba59abbe56e057f20f883e"))) {
 			return ReturnDto.send(100011);
 		}
-		
+
 		Order order = orderService.findByOutTradeNo(user.getId(),outTradeNo);
 		if(order == null) {
 			return ReturnDto.send(100013);
@@ -314,8 +331,8 @@ public class OrderController extends Thread{
 		res.put("payState", order.getPayState());
 		return ReturnDto.send(res);
 	}
-	
-	
+
+
 	public static Map<String, String> getQrCode(int fee,QrcodeService qrcodeService,String type){
 		return null;
 		/*int purchase = 
@@ -324,7 +341,7 @@ public class OrderController extends Thread{
 		}
 		Map<String, String> res = new HashMap<>();
 		if(userID != null) {
-			
+
 		}
 		List<Qrcode>  list = qrcodeService.findByQrcodeList(userID, commodityID);
 		if(list == null || list.size() == 0) {
@@ -332,9 +349,9 @@ public class OrderController extends Thread{
 			return res;
 		}
 		for (Qrcode qrcode : list) {
-			
+
 			String qrcodeUrl = RedisOperationManager.getString(redisKey+"fee="+qrcode.getFee()+"&userID="+userID+"&type="+type);
-			
+
 			if(qrcodeUrl != null) {
 				continue;
 			}
@@ -344,30 +361,30 @@ public class OrderController extends Thread{
 			}
 			res.put("fee", String.valueOf(qrcode.getFee()));
 			res.put("qrcodeUrl", qrcode.getUrl());
-			
+
 			RedisOperationManager.setString(redisKey+"fee="+qrcode.getFee()+"&userID="+userID+"&type="+type, qrcode.getUrl(), time);
-			
+
 			return res;
-			
+
 		}
 		res.put("errorCode", "100012");
 		return res;*/
 		/*
-		
-		
+
+
 		if(qrcodeUrl != null) {
 			return getQrCode(fee-1, qrcodeService, time, userID,type);
 		}
-		
+
 		Qrcode qrcode =  qrcodeService.findByFee(fee, userID, type);
 		if(qrcode != null) {
 			Map<String, String> res = new HashMap<>();
 			res.put("fee", String.valueOf(fee));
 			res.put("qrcodeUrl", qrcode.getUrl());
 			res.put("commdityID", qrcode.getCommodityID());
-			
+
 			RedisOperationManager.setString(redisKey+"fee="+fee+"&userID="+userID+"&type="+type, qrcode.getUrl(), time);
-			
+
 			return res;
 		}else {
 			Map<String, String> res = new HashMap<>();
@@ -379,19 +396,19 @@ public class OrderController extends Thread{
 			res.put("fee", String.valueOf(fee));
 			res.put("qrcodeUrl", qrcode.getUrl());
 			res.put("commdityID", qrcode.getCommodityID());
-			
+
 			RedisOperationManager.setString(redisKey+"fee="+fee+"&userID="+userID+"&type="+type, qrcode.getUrl(), time);
-			
+
 			return res;
 		}*/
 	}
-	
+
 	@RequestMapping("/client/transmit")
 	@ResponseBody
 	public void transmit(HttpServletRequest request,HttpServletResponse response) throws IOException {
-		
+
 		PrintWriter writer =  response.getWriter();
-		
+
 		String jsonStr = RequestJson.returnJson(request);
 		if(jsonStr == null || "".equals(jsonStr)) {
 			writer.write(com.alibaba.fastjson.JSONObject.toJSONString(ReturnDto.send(100001)));
@@ -399,18 +416,18 @@ public class OrderController extends Thread{
 			return;
 		}
 		Map<String, String> map = (Map<String, String>) JSONObject.toBean(JSONObject.fromObject(jsonStr),Map.class);
-		
+
 		if(map.get("userName") == null || map.get("password") == null || map.get("price") == null || map.get("type") == null) {
 			writer.write(com.alibaba.fastjson.JSONObject.toJSONString(ReturnDto.send(100001)));
 			writer.close();
 			return;
 		}
-		
+
 		String userName = map.get("userName");
 		String password = map.get("password");
 		String price = map.get("price");
 		String type = map.get("type");
-		
+
 		int fee = 0;
 		try {
 			fee = Integer.valueOf(price);
@@ -419,35 +436,35 @@ public class OrderController extends Thread{
 			writer.close();
 			return;
 		}
-		
+
 		if(!type.equals("wechat") && !type.equals("alipay")) {
 			writer.write(com.alibaba.fastjson.JSONObject.toJSONString(ReturnDto.send(100010)));
 			writer.close();
 			return;
 		}
-		
+
 		User user = userService.findByName(userName);
 		if(user == null) {
 			writer.write(com.alibaba.fastjson.JSONObject.toJSONString(ReturnDto.send(100002)));
 			writer.close();
 			return;
 		}
-		
+
 		if(!user.getPassword().equals(MD5.MD5Encode(password))) {
 			writer.write(com.alibaba.fastjson.JSONObject.toJSONString(ReturnDto.send(100003)));
 			writer.close();
 			return;
 		}
-		
+
 		if(userName.equals("admin")) {
-			
+
 			Order order = orderService.findByFee(fee, type);
-			
+
 			if(order != null) {
-				
+
 				order.setPayState("1");
 				order = orderService.save(order);
-				
+
 				if(order.getOrderType().equals("1")) {
 					//购买套餐
 					SetMeal setMeal = setMealService.findById(order.getCommdityID());
@@ -468,7 +485,7 @@ public class OrderController extends Thread{
 						writer.close();
 						return;
 					}
-					
+
 					SetMealPurchase setMealPurchase =  setMealPurchaseService.save(order.getUserID(), String.valueOf(number),setMeal.getProcedures(),setMeal.getId());
 					if(setMealPurchase == null) {
 						writer.write(com.alibaba.fastjson.JSONObject.toJSONString(ReturnDto.send(100005)));
@@ -477,22 +494,22 @@ public class OrderController extends Thread{
 					}
 					writer.write(com.alibaba.fastjson.JSONObject.toJSONString(ReturnDto.send(true)));
 					writer.close();
-					
+
 					AdminConfig adminConfig = adminConfigService.findByOne();
 					if(adminConfig != null && "1".equals(adminConfig.getImmediately())) {
 						RedisOperationManager.del("pay_set_meal:"+"fee="+fee+"&type="+type);
 					}
-					
+
 					/*RechargeUserDetailed rechargeUserDetailed = new RechargeUserDetailed();
 					rechargeUserDetailed.setFee(-order.getPrice());
 					rechargeUserDetailed.setUserID(order.getUserID());
 					rechargeUserDetailed.setRemarks("购买套餐");
 					rechargeUserDetailed =  rechargeUserDetailedService.save(rechargeUserDetailed);*/
-					
+
 					return;
-					
+
 				}else if(order.getOrderType().equals("2")) {
-					
+
 					RechargeList rechargeList =  rechargeListService.findByID(order.getCommdityID());
 					if(rechargeList == null) {
 						writer.write(com.alibaba.fastjson.JSONObject.toJSONString(ReturnDto.send(100005)));
@@ -509,33 +526,33 @@ public class OrderController extends Thread{
 						writer.close();
 						return;
 					}
-					
+
 					writer.write(com.alibaba.fastjson.JSONObject.toJSONString(ReturnDto.send(true)));
 					writer.close();
-					
+
 					AdminConfig adminConfig = adminConfigService.findByOne();
 					if(adminConfig != null && "1".equals(adminConfig.getImmediately())) {
 						RedisOperationManager.del("mysql_recharge_qrcode_pay:"+"fee="+fee+"&type="+type);
 					}
 					return;
-					
+
 				}
 			}
-			
+
 		}
-		
+
 		Order order = orderService.findByFee(fee, user.getId(),type);
-		
+
 		//添加明细
 		changeDetailService.save(user.getId(), fee);
-		
+
 		//是否删除缓存
 		Config config = configService.findById(user.getId());
 		if(config != null && "1".equals(config.getImmediately())) {
 			RedisOperationManager.del(redisKey+"fee="+fee+"&userID="+user.getId()+"&type="+type);
 		}
-		
-		
+
+
 		if(order == null || order.getPayState().equals("1")) {
 			//无匹配订单
 			order = new Order();
@@ -563,12 +580,12 @@ public class OrderController extends Thread{
 				writer.close();
 				return;
 			}else {
-				
-				
+
+
 				RechargeUserDetailed userDetailed = rechargeUserDetailedService.findByOutTradeNo(order.getOutTradeNo());
-				
+
 				if(userDetailed != null) {
-					
+
 					userDetailed.setRemarks("下单扣除手续费");
 					userDetailed.setOutTradeNo(null);
 					rechargeUserDetailedService.save(userDetailed);
@@ -590,18 +607,18 @@ public class OrderController extends Thread{
 								rechargeUserDetailed.setUserID(order.getUserID());
 								rechargeUserDetailed.setRemarks("下单扣除手续费");
 								rechargeUserDetailed =  rechargeUserDetailedService.save(rechargeUserDetailed);
-								
+
 								order.setProcedures(procedures);
 								order.setProceduresFee(proceduresFee);
 								orderService.save(order);
 							}
 						}
-						
+
 					}
 				}
-				
-				
-				
+
+
+
 				//查询剩余金额
 				int sum = rechargeUserDetailedService.sum(order.getUserID());
 				Config metConfig = configService.findById(order.getUserID());
@@ -614,31 +631,31 @@ public class OrderController extends Thread{
 				//返回
 				writer.write(com.alibaba.fastjson.JSONObject.toJSONString(ReturnDto.send(0,true,state)));
 				writer.close();
-				
+
 				//开启线程
 				OrderController orderController = new OrderController(order.getId(),orderService,userService);
 				orderController.start();
-				
+
 				//gcny
 				GcnyOrderChangeNotice gcnyOrderChangeNotice = new GcnyOrderChangeNotice(order.getOutTradeNo(), orderService);
 				gcnyOrderChangeNotice.start();
 			}
 		}
-		
+
 	}
-	
-	
-	
+
+
+
 	public void run() {
-		
+
 		Order order = orderService.findById(orderID);
-		
+
 		if(order == null || order.getNotifyState().equals("1") || order.getNotifyUrl() == null) {
 			return;
 		}
 		User user = userService.findById(order.getUserID());
-		
-		
+
+
 		Map<String, String> res = new HashMap<>();
 		res.put("outTradeNo", order.getOutTradeNo());
 		res.put("price", String.valueOf(order.getPrice()));
@@ -651,9 +668,9 @@ public class OrderController extends Thread{
 		//res.put("sign", AsciiOrder.sign(res, user.getToken()));
 		res.put("sign", AsciiOrder.sign(res, "e10adc3949ba59abbe56e057f20f883e"));
 		for (int i = 0; i < 5;i++) {
-			
+
 			String req = HttpClientUtils.sendPost(order.getNotifyUrl(),com.alibaba.fastjson.JSONObject.toJSONString(res));
-			
+
 			if("SUCCESS".equals(req)) {
 				order.setNotifyState("1");
 				order.setNotifyTime(DateUtil.getStringDateTime());
@@ -669,7 +686,7 @@ public class OrderController extends Thread{
 				e.printStackTrace();
 			}
 		}
-		
+
 	}
 
 	public String getOrderID() {
@@ -689,15 +706,15 @@ public class OrderController extends Thread{
 	public OrderController() {
 		super();
 	}
-	
-	
+
+
 	@RequestMapping("/index/data")
 	@ResponseBody
 	public void indexData(HttpServletRequest request,HttpServletResponse response) throws IOException {
-		
-		
+
+
 		PrintWriter writer =  response.getWriter();
-		
+
 		String jsonStr = RequestJson.returnJson(request);
 		if(jsonStr == null || "".equals(jsonStr)) {
 			writer.write(com.alibaba.fastjson.JSONObject.toJSONString(ReturnDto.send(100001)));
@@ -705,35 +722,35 @@ public class OrderController extends Thread{
 			return;
 		}
 		Map<String, String> map = (Map<String, String>) JSONObject.toBean(JSONObject.fromObject(jsonStr),Map.class);
-		
+
 		if(map.get("userName") == null || map.get("password") == null) {
 			writer.write(com.alibaba.fastjson.JSONObject.toJSONString(ReturnDto.send(100001)));
 			writer.close();
 			return;
 		}
-		
+
 		String userName = map.get("userName");
 		String password = map.get("password");
-		
-		
+
+
 		User user = userService.findByName(userName);
 		if(user == null) {
 			writer.write(com.alibaba.fastjson.JSONObject.toJSONString(ReturnDto.send(100002)));
 			writer.close();
 			return;
 		}
-		
+
 		if(!user.getPassword().equals(MD5.MD5Encode(password))) {
 			writer.write(com.alibaba.fastjson.JSONObject.toJSONString(ReturnDto.send(100003)));
 			writer.close();
 			return;
 		}
-		
+
 		String userID = user.getId();
-		
-		
+
+
 		Map<String, Object> res = new HashMap<>();
-		
+
 		SetMealPurchase setMealPurchase =  setMealPurchaseService.findByUserID(userID);
 		if(setMealPurchase == null) {
 			//无购买套餐
@@ -741,25 +758,25 @@ public class OrderController extends Thread{
 		}else {
 			res.put("expireDate", setMealPurchase.getExpireDate());
 		}
-		
+
 		//剩余金额
 		int sum = rechargeUserDetailedService.sum(userID);
 		res.put("fee", sum);
-		
+
 		StatisticsDto statisticsDto = orderService.statistics(userID);
 		res.put("uid", user.getUid());
 		Map<String, Object> resMap = new HashMap<>();
 		resMap.put("statistics", statisticsDto);
 		resMap.put("account", res);
-		
+
 		writer.write(com.alibaba.fastjson.JSONObject.toJSONString(ReturnDto.send(resMap)));
 		writer.close();
 		return;
 	}
-	
-	
+
+
 	public static int calculation(SetMealPurchaseService setMealPurchaseService,String userID,int orderFee) {
-		
+
 		SetMealPurchase setMealPurchase = setMealPurchaseService.findByUserIDAndExpireDate(userID);
 		if(setMealPurchase != null) {
 			int procedures = setMealPurchase.getProcedures();
@@ -771,22 +788,22 @@ public class OrderController extends Thread{
 				} catch (Exception e) {
 				}
 			}
-			
+
 		}
 		return 0;
 	}
-	
+
 	public static Map<String, String> RandomUser(UserService userService,int fee,SetMealPurchaseService setMealPurchaseService,
-			CommodityService commodityService,QrcodeService qrcodeService,String type) {
-		
+			CommodityService commodityService,QrcodeService qrcodeService,String type,AdminConfig adminConfig) {
+
 		List<UserDto> list = userService.findByOrderPay(type);
-		
-		return getRandomUser(list,commodityService,fee,qrcodeService,setMealPurchaseService,type);
+
+		return getRandomUser(list,commodityService,fee,qrcodeService,setMealPurchaseService,type,adminConfig);
 	}
-	
+
 	public static Map<String, String> getRandomUser(List<UserDto> list,CommodityService commodityService,int fee,
-			QrcodeService qrcodeService,SetMealPurchaseService setMealPurchaseService,String type) {
-		
+			QrcodeService qrcodeService,SetMealPurchaseService setMealPurchaseService,String type,AdminConfig adminConfig) {
+
 		if(list == null || list.size() == 0) {
 			return null;
 		}
@@ -794,31 +811,44 @@ public class OrderController extends Thread{
 		//int row = (int)(Math.random()) * (size+1);
 		int row =0;
 		if(row > size) {
-			return getRandomUser(list,commodityService,fee,qrcodeService,setMealPurchaseService,type);
+			return getRandomUser(list,commodityService,fee,qrcodeService,setMealPurchaseService,type,adminConfig);
 		}else {
 			UserDto user = list.get(row);
-			if(user.getSumFee() == 0) {
-				list.remove(row);
-				return getRandomUser(list,commodityService,fee,qrcodeService,setMealPurchaseService,type);
+			
+			if (adminConfig.getIsUse()==1) {
+				//查看用户前一分钟是否匹配过
+				String lastOrder = RedisOperationManager.getString(orderTimeRedisKey+"userID="+user.getId()+"&type="+type);
+				if(lastOrder != null) {
+					Integer orderCcount = Integer.parseInt(RedisOperationManager.getString(orderTimeRedisKey+"userID="+user.getId()+"&type="+type));
+					if (orderCcount>=adminConfig.getRate()) {
+						list.remove(row);
+						return getRandomUser(list,commodityService,fee,qrcodeService,setMealPurchaseService,type,adminConfig);
+					}
+				}
 			}
 			
-			
+			if(user.getSumFee() == 0) {
+				list.remove(row);
+				return getRandomUser(list,commodityService,fee,qrcodeService,setMealPurchaseService,type,adminConfig);
+			}
+
+
 			if("alipay".equals(type)) {
 				if(user.getAlipayQuota().compareTo(BigDecimal.ZERO)!=1) {
 					list.remove(row);
-					return getRandomUser(list,commodityService,fee,qrcodeService,setMealPurchaseService,type);
+					return getRandomUser(list,commodityService,fee,qrcodeService,setMealPurchaseService,type,adminConfig);
 				}
 			}else if ("wechat".equals(type)) {
 				if(user.getWechatQuota().compareTo(BigDecimal.ZERO)!=1) {
 					list.remove(row);
-					return getRandomUser(list,commodityService,fee,qrcodeService,setMealPurchaseService,type);
+					return getRandomUser(list,commodityService,fee,qrcodeService,setMealPurchaseService,type,adminConfig);
 				}
 			}
-			
-			
+
+
 			if(setMealPurchaseService.findByUserIDAndExpireDate(user.getId()) == null) {
 				list.remove(row);
-				return getRandomUser(list,commodityService,fee,qrcodeService,setMealPurchaseService,type);
+				return getRandomUser(list,commodityService,fee,qrcodeService,setMealPurchaseService,type,adminConfig);
 			}
 			int proceduresFee = calculation(setMealPurchaseService, user.getId(), fee);
 			int procedures = 0;
@@ -829,18 +859,18 @@ public class OrderController extends Thread{
 					try {
 						proceduresFee = new BigDecimal(Math.ceil(new BigDecimal(fee).multiply(new BigDecimal(procedures).divide(new BigDecimal(1000))).doubleValue())).intValue();
 					} catch (Exception e) {
-						
+
 					}
 				}
 			}
-			
-			
+
+
 			if(proceduresFee > Integer.valueOf(user.getSumFee())) {
 				list.remove(row);
-				return getRandomUser(list,commodityService,fee,qrcodeService,setMealPurchaseService,type);
+				return getRandomUser(list,commodityService,fee,qrcodeService,setMealPurchaseService,type,adminConfig);
 			}
 			//与额度做比较
-			
+
 			/*if("alipay".equals(type)) {
 				if(user.getAlipayQuota().compareTo(BigDecimal.valueOf(proceduresFee))!=1) {
 					list.remove(row);
@@ -852,23 +882,23 @@ public class OrderController extends Thread{
 					return getRandomUser(list,commodityService,fee,qrcodeService,setMealPurchaseService,type);
 				}
 			}*/
-			
+
 			Commodity commodity =  commodityService.findByFee(fee, user.getId());
 			if(commodity == null) {
 				list.remove(row);
-				return getRandomUser(list,commodityService,fee,qrcodeService,setMealPurchaseService,type);
+				return getRandomUser(list,commodityService,fee,qrcodeService,setMealPurchaseService,type,adminConfig);
 			}
-			
+
 			List<Qrcode> qrcodes = qrcodeService.findByQrcode(fee, user.getId(), type, commodity.getId());
 			if(qrcodes == null || qrcodes.size() == 0) {
 				list.remove(row);
-				return getRandomUser(list,commodityService,fee,qrcodeService,setMealPurchaseService,type);
+				return getRandomUser(list,commodityService,fee,qrcodeService,setMealPurchaseService,type,adminConfig);
 			}
 			Map<String, String> res = new HashMap<>();
 			for (Qrcode  qrcode : qrcodes) {
-				
+
 				String qrcodeUrl = RedisOperationManager.getString(redisKey+"fee="+qrcode.getFee()+"&userID="+user.getId()+"&type="+qrcode.getType());
-				
+
 				if(qrcodeUrl != null) {
 					continue;
 				}
@@ -882,16 +912,16 @@ public class OrderController extends Thread{
 				res.put("commodityID", commodity.getId());
 				res.put("procedures", String.valueOf(procedures));
 				res.put("proceduresFee", String.valueOf(proceduresFee));
-				
+
 				RedisOperationManager.setString(redisKey+"fee="+qrcode.getFee()+"&userID="+user.getId()+"&type="+qrcode.getType(), qrcode.getUrl(), 360);
-				
+
 				return res;
 			}
-			
+
 			list.remove(row);
-			return getRandomUser(list,commodityService,fee,qrcodeService,setMealPurchaseService,type);
-			
+			return getRandomUser(list,commodityService,fee,qrcodeService,setMealPurchaseService,type,adminConfig);
+
 		}
 	}
-	
+
 }

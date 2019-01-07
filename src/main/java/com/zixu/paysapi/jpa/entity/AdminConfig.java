@@ -29,6 +29,28 @@ public class AdminConfig implements Serializable{
 	@Column(name="immediately")
 	private String immediately;
 
+	@Column(name="rate")
+	private int rate;
+	
+	public int getRate() {
+		return rate;
+	}
+
+	public void setRate(int rate) {
+		this.rate = rate;
+	}
+
+	public int getIsUse() {
+		return isUse;
+	}
+
+	public void setIsUse(int isUse) {
+		this.isUse = isUse;
+	}
+
+	@Column(name="isUse")
+	private int isUse;
+	
 	public int getOverdueTime() {
 		return overdueTime;
 	}
