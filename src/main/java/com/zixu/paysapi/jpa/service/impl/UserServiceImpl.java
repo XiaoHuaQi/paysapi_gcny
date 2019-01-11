@@ -158,5 +158,27 @@ public class UserServiceImpl implements UserService{
 		
 	}
 	
+	@Override
+	public List<UserDto> findByGCNYPay(String uids,String type) {
+		
+		if(uids==null) {
+			return null;
+		}
+		
+	
+		String sql = " SELECT u.id as id,IFNULL(SUM(d.fee),0) AS sumFee,u.uid as uid, u.alipayQuota,u.wechatQuota FROM com_zixu_user u "
+				+ " LEFT JOIN com_zixu_recharge_user_detailed d ON u.id = d.userID WHERE u.state='0' AND u.type='merchant' "
+				+ " u.uid  in ("+uids+") "
+				+ " GROUP BY u.id ORDER BY  ";
+		
+		if("alipay".equals(type)) {
+			sql=sql+" u.alipayQuota DESC, ";
+		}else if ("wechat".equals(type)) {
+			sql=sql+" u.wechatQuota DESC, ";
+		}
+		sql=sql+" sumFee DESC ";
+		return dao.nativeFind(UserDto.class, sql);
+	}
+	
 	
 }

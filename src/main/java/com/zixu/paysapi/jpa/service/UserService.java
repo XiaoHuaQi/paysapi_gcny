@@ -27,4 +27,5 @@ public interface UserService {
 	
 	void updateQuota(JSONArray list);
 	
+	List<UserDto> findByGCNYPay(String uids,String type);
 }

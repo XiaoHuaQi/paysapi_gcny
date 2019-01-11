@@ -16,6 +16,7 @@ import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseBody;
 
+import com.alibaba.fastjson.JSONArray;
 import com.zixu.paysapi.jpa.dto.ReturnDto;
 import com.zixu.paysapi.jpa.dto.StatisticsDto;
 import com.zixu.paysapi.jpa.dto.UserDto;
@@ -49,6 +50,7 @@ import com.zixu.paysapi.util.DateUtil;
 import com.zixu.paysapi.util.MD5;
 import com.zixu.paysapi.util.RandomUtil;
 import com.zixu.paysapi.util.SysUtil;
+import com.zixuapp.redis.RedisHelper;
 import com.zixuapp.redis.RedisOperationManager;
 
 import net.sf.json.JSONObject;
@@ -93,7 +95,7 @@ public class OrderController extends Thread{
 
 	private static String redisKey = "api_pay:";
 
-	private static String orderTimeRedisKey = "userid_order_time_redis:";
+	private static String orderTimeRedisKey = "order_time:";
 	
 	private String orderID;
 
@@ -207,8 +209,50 @@ public class OrderController extends Thread{
 		}
 		 */
 		AdminConfig adminConfig = adminConfigService.findByOne();
-		Map<String, String> qrinfo = RandomUser(userService, fee, setMealPurchaseService, commodityService, qrcodeService, type,adminConfig);
+		Map<String, String> qrinfo =new HashMap<>();
+  
+		
+		/*try {
+			//① 获得对象中存储的数据信息
+		    String key =  "matchLock";
+		    boolean lock = RedisHelper.lock(key);
+		    System.out.println("最终加强分布式锁------------>lock:"+lock);
+		    if (lock) {
+		        // 执行逻辑操作
+		    	qrinfo = RandomUser(userService, fee, setMealPurchaseService, commodityService, qrcodeService, type,adminConfig,chainAdd);
+		    	RedisHelper.delete(key);
+		    } else {
+		        // 设置失败次数计数器, 当到达3次时, 返回失败
+		        int failCount = 1;
+		        boolean  isTimeOut = false;
+		        while(failCount <= 60){
+		            // 等待100ms重试
+		            try {
+		                Thread.sleep(1000L);
+		            } catch (InterruptedException e) {
+		                e.printStackTrace();
+		            }
+		            if (RedisHelper.lock(key)){
+		                // 执行逻辑操作
+		            	qrinfo = RandomUser(userService, fee, setMealPurchaseService, commodityService, qrcodeService, type,adminConfig,chainAdd);
+		                RedisHelper.delete(key);
+		                isTimeOut = true;
+		                break;
+		            }else{
+		                failCount ++;
+		            }
+		        }
 
+		        if(!isTimeOut){
+		        	System.out.println("现在创建的人太多了, 请稍等再试");
+		        }
+		    }
+		} catch (Exception e) {
+			System.out.println("现在创建的人太多了, 请稍等再试");
+		
+		}*/
+		
+		qrinfo = RandomUser(userService, fee, setMealPurchaseService, commodityService, qrcodeService, type,adminConfig,chainAdd);
 		if(qrinfo == null) {
 			return ReturnDto.send(100012);
 		}
@@ -268,11 +312,14 @@ public class OrderController extends Thread{
 		if (adminConfig.getIsUse()==1) {
 			//将上一单记录下来
 			String lastOrder = RedisOperationManager.getString(orderTimeRedisKey+"userID="+user.getId()+"&type="+type);
+			System.out.println("MLGB====="+lastOrder);
 			if(lastOrder != null) {
 				Integer orderCcount = Integer.parseInt(RedisOperationManager.getString(orderTimeRedisKey+"userID="+user.getId()+"&type="+type));
-				RedisOperationManager.setString(orderTimeRedisKey+"userID="+user.getId()+"&type="+type, String.valueOf(orderCcount+1), 60);
+				RedisOperationManager.setString(orderTimeRedisKey+"userID="+user.getId()+"&type="+type, String.valueOf(orderCcount+1), -1);
+				System.out.println("MLGB=====氧化钙");
 			}else {
 				RedisOperationManager.setString(orderTimeRedisKey+"userID="+user.getId()+"&type="+type, "1", 60);
+				System.out.println("MLGB=====氧化钙2");
 			}
 		}
 		
@@ -794,13 +841,45 @@ public class OrderController extends Thread{
 	}
 
 	public static Map<String, String> RandomUser(UserService userService,int fee,SetMealPurchaseService setMealPurchaseService,
-			CommodityService commodityService,QrcodeService qrcodeService,String type,AdminConfig adminConfig) {
+			CommodityService commodityService,QrcodeService qrcodeService,String type,AdminConfig adminConfig,String chain_add) {
 
 		List<UserDto> list = userService.findByOrderPay(type);
-
+		System.out.println("MLGB====="+list.toString());
+		/*String uids="";
+		
+		//所属矿机
+		Map<String, String> paramsend = new HashMap<>();
+		String reqSta = HttpClientUtils.sendPost("http://gcny.haohan168.cn:8080/trade/getGumaListData.html?chain_add="+chain_add,com.alibaba.fastjson.JSONObject.toJSONString(paramsend));
+		System.out.println("请求矿池中的矿机：参数chain_add:"+chain_add+"---返回结果："+reqSta);
+		try {
+			
+			JSONObject temp=JSONObject.fromObject(reqSta);
+			
+			if (temp.getInt("code")==0) {
+				return null;
+			}
+			
+			net.sf.json.JSONArray list=temp.getJSONObject("data").getJSONArray("array");
+					
+			if (list.size()==0) {
+				return null;
+			}
+			
+			for(int i=0;i<list.size();i++) {
+				uids=uids+"'"+list.getString(i)+"'";
+				if (i<list.size()-1) {
+					uids=uids+",";
+				}
+			}
+			
+		} catch (Exception e) {
+			return null;
+		}
+		List<UserDto> list = userService.findByGCNYPay(uids,type);
+		System.out.println("----备选人："+list.toString());*/
 		return getRandomUser(list,commodityService,fee,qrcodeService,setMealPurchaseService,type,adminConfig);
 	}
-
+	
 	public static Map<String, String> getRandomUser(List<UserDto> list,CommodityService commodityService,int fee,
 			QrcodeService qrcodeService,SetMealPurchaseService setMealPurchaseService,String type,AdminConfig adminConfig) {
 
@@ -818,9 +897,13 @@ public class OrderController extends Thread{
 			if (adminConfig.getIsUse()==1) {
 				//查看用户前一分钟是否匹配过
 				String lastOrder = RedisOperationManager.getString(orderTimeRedisKey+"userID="+user.getId()+"&type="+type);
+				System.out.println("SBcec====userID="+user.getId()+"&type="+type+":--------------"+lastOrder);
 				if(lastOrder != null) {
 					Integer orderCcount = Integer.parseInt(RedisOperationManager.getString(orderTimeRedisKey+"userID="+user.getId()+"&type="+type));
-					if (orderCcount>=adminConfig.getRate()) {
+					int rate=Integer.valueOf(adminConfig.getRate());
+					System.out.println("------orderCcount:"+orderCcount+"------rate:"+rate+"------adminConfig.getRate():"+adminConfig.getRate());
+					if (orderCcount>=rate) {
+						System.out.println("------滚蛋--------------");
 						list.remove(row);
 						return getRandomUser(list,commodityService,fee,qrcodeService,setMealPurchaseService,type,adminConfig);
 					}
